@@ -1,13 +1,15 @@
 package org.sifrproject;
 
-import org.apache.commons.pool2.impl.GenericObjectPool;
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.sifrproject.recognizer.ConceptRecognizer;
-import org.sifrproject.recognizer.pool.FaironRecognizerPooledObjectFactory;
+import org.sifrproject.recognizer.pool.FaironRecognizerAllocator;
 import org.sifrproject.server.RecognizerClientHandler;
 import org.sifrproject.server.StartStopJoinRunnable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import stormpot.Allocator;
+import stormpot.BlazePool;
+import stormpot.Config;
+import stormpot.Pool;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -34,7 +36,7 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
 
     private final int port;
     private final Thread thread = new Thread(this);
-    private final GenericObjectPool<ConceptRecognizer> recognizerPool;
+    private final Pool<ConceptRecognizer> recognizerPool;
 
     /**
      * Pool of worker threads of unbounded size. A new thread will be created
@@ -57,16 +59,18 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
     private ClinicalRecognizerServer(final int port, final Path dictionaryPath) {
         this.port = port;
 
-        final GenericObjectPoolConfig config = new GenericObjectPoolConfig();
-        config.setMaxTotal(5);
-        config.setMaxIdle(5);
-        recognizerPool = new GenericObjectPool<>(new FaironRecognizerPooledObjectFactory(dictionaryPath),config);
-        //Forcing the creation of at least one object at startup
-        /*try {
-            recognizerPool.returnObject();
-        } catch (final Exception e) {
-            logger.error("Cannot instantiate initial recognizer instance {}", e.getLocalizedMessage());
-        }*/
+        final Allocator<ConceptRecognizer>  allocator = new FaironRecognizerAllocator(dictionaryPath);
+        final Config<ConceptRecognizer> config = new Config<ConceptRecognizer>().setAllocator(allocator);
+        config.setBackgroundExpirationEnabled(false);
+        config.setSize(3);
+        recognizerPool = new BlazePool<>(config);
+
+//        //Forcing the creation of at least one object at startup
+//        try {
+//            recognizerPool.returnObject(recognizerPool.borrowObject());
+//        } catch (final Exception e) {
+//            logger.error("Cannot instantiate initial recognizer instance {}", e.getLocalizedMessage());
+//        }
 
         workers = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
                 600L, TimeUnit.SECONDS,

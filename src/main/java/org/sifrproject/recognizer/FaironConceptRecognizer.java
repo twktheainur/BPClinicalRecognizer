@@ -6,6 +6,8 @@ import opennlp.tools.tokenize.SimpleTokenizer;
 import opennlp.tools.util.Span;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import stormpot.Poolable;
+import stormpot.Slot;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -21,7 +23,8 @@ import java.util.stream.Collectors;
 public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private static final Logger logger = LoggerFactory.getLogger(FaironConceptRecognizer.class);
-    private static final Pattern NORMALIZE_PATTERN = Pattern.compile("[\\[\\]{}()\\p{M}]");
+    private static final Pattern NORMALIZE_PUNCTUATION = Pattern.compile("['\\[\\]{}()]");
+    private static final Pattern NORMALIZE_DIACRITICS = Pattern.compile("[\\p{M}]");
 
     private final Path dictionaryPath;
 
@@ -35,10 +38,13 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     private final Stemmer stemmer = new SnowballStemmer(SnowballStemmer.ALGORITHM.FRENCH);
     private final SimpleTokenizer simpleTokenizer = SimpleTokenizer.INSTANCE;
 
-    public FaironConceptRecognizer(final Path dictionaryPath){
+    private final Slot slot;
+
+    public FaironConceptRecognizer(final Slot slot, final Path dictionaryPath) {
         this.dictionaryPath = dictionaryPath;
         dictionaryUnigramIndex = new HashMap<>();
         conceptLengthIndex = new HashMap<>();
+        this.slot = slot;
         loadStopWords();
         loadTerminationTerms();
         try {
@@ -47,7 +53,10 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
             logger.error("FATAL - Failed to load dictionary: {}", e.getLocalizedMessage());
             System.exit(1);
         }
+    }
 
+    public FaironConceptRecognizer(final Path dictionaryPath) {
+        this(new DummySlot(), dictionaryPath);
     }
 
     private void loadStopWords() {
@@ -66,9 +75,9 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     private void loadTerminationTerms() {
         logger.debug("Loading termination terms from resources");
         try (InputStream terminationStream = FaironConceptRecognizer.class.getResourceAsStream("/termination_terms.fr.txt")) {
-            try (BufferedReader teminationReader = new BufferedReader(new InputStreamReader(terminationStream))) {
-                while (teminationReader.ready()) {
-                    terminationList.add(teminationReader.readLine());
+            try (BufferedReader terminationReader = new BufferedReader(new InputStreamReader(terminationStream))) {
+                while (terminationReader.ready()) {
+                    terminationList.add(terminationReader.readLine());
                 }
             }
         } catch (final IOException e) {
@@ -83,7 +92,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
             while (reader.ready()) {
                 final String line = reader.readLine();
                 final String[] fields = line.split("\t");
-                final String label = Normalizer.normalize(fields[1], Normalizer.Form.NFKD);
+                final String label = fields[1];
                 final Long conceptId = Long.valueOf(fields[0]);
 
                 final String normalizedLabel = normalizeString(label);
@@ -129,13 +138,12 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                 Set<Long> concepts = getConceptsForStemFromIndex(stem(stem(token)));
                 final int conceptStart = currentSpan.getStart();
                 int conceptEnd = currentSpan.getEnd();
-                logger.trace("Processing token {} in span [{},{}]", token, currentSpan.getStart(), currentSpan.getEnd());
-                logger.trace("\tExploring following words for multi-word expression...");
+                logger.trace("Matching from token {} in span [{},{}]", token, currentSpan.getStart(), currentSpan.getEnd());
                 int matchCursor = 1;
                 int stopCount = 0;
                 while ((currentTokenSpanIndex + matchCursor) < tokenSpans.length) {
                     final Span nextSpan = tokenSpans[currentTokenSpanIndex + matchCursor];
-                    final String nextToken = tokenFromSpan(nextSpan, inputText);
+                    final String nextToken = tokenFromSpan(nextSpan, normalizedInputText);
                     if (stopList.contains(nextToken)) {
                         stopCount++;
                     } else if (terminationList.contains(nextToken)) {
@@ -175,10 +183,13 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     }
 
     private String normalizeString(final CharSequence input) {
-        return NORMALIZE_PATTERN
-                .matcher(Normalizer.normalize(input, Normalizer.Form.NFKD))
-                .replaceAll("")
+        final String withoutPunctuation = NORMALIZE_PUNCTUATION
+                .matcher(input)
+                .replaceAll(" ")
                 .toLowerCase();
+        return NORMALIZE_DIACRITICS
+                .matcher(Normalizer.normalize(withoutPunctuation, Normalizer.Form.NFKD))
+                .replaceAll("");
     }
 
     private String stem(final CharSequence input) {
@@ -201,5 +212,22 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
             annotations.add(AnnotationToken.create(start, end, conceptText, conceptID, tokenCardinality));
         }
         return annotations;
+    }
+
+    @Override
+    public void release() {
+        slot.release(this);
+    }
+
+    private static class DummySlot implements Slot {
+        @Override
+        public void release(final Poolable poolable) {
+
+        }
+
+        @Override
+        public void expire(final Poolable poolable) {
+
+        }
     }
 }
