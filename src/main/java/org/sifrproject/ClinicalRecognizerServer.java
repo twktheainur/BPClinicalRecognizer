@@ -62,11 +62,11 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
         config.setMaxIdle(5);
         recognizerPool = new GenericObjectPool<>(new FaironRecognizerPooledObjectFactory(dictionaryPath),config);
         //Forcing the creation of at least one object at startup
-        try {
-            recognizerPool.returnObject(recognizerPool.borrowObject());
+        /*try {
+            recognizerPool.returnObject();
         } catch (final Exception e) {
             logger.error("Cannot instantiate initial recognizer instance {}", e.getLocalizedMessage());
-        }
+        }*/
 
         workers = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
                 600L, TimeUnit.SECONDS,

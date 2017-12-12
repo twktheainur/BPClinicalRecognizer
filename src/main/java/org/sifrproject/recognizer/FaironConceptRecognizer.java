@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private static final Logger logger = LoggerFactory.getLogger(FaironConceptRecognizer.class);
-    private static final Pattern NORMALIZE_PATTERN = Pattern.compile("[\\p{Punct}\\p{M}]");
+    private static final Pattern NORMALIZE_PATTERN = Pattern.compile("[\\[\\]{}()\\p{M}]");
 
     private final Path dictionaryPath;
 
@@ -29,6 +29,8 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     private final Map<Long, Integer> conceptLengthIndex;
 
     private final Collection<String> stopList = new TreeSet<>();
+
+    private final Collection<String> terminationList = new TreeSet<>();
 
     private final Stemmer stemmer = new SnowballStemmer(SnowballStemmer.ALGORITHM.FRENCH);
     private final SimpleTokenizer simpleTokenizer = SimpleTokenizer.INSTANCE;
@@ -38,6 +40,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
         dictionaryUnigramIndex = new HashMap<>();
         conceptLengthIndex = new HashMap<>();
         loadStopWords();
+        loadTerminationTerms();
         try {
             loadDictionary();
         } catch (final IOException e) {
@@ -48,6 +51,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     }
 
     private void loadStopWords() {
+        logger.debug("Loading stopwords from resources");
         try (InputStream stopStream = FaironConceptRecognizer.class.getResourceAsStream("/stopwords.fr.txt")) {
             try (BufferedReader stopReader = new BufferedReader(new InputStreamReader(stopStream))) {
                 while (stopReader.ready()) {
@@ -59,8 +63,22 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
         }
     }
 
+    private void loadTerminationTerms() {
+        logger.debug("Loading termination terms from resources");
+        try (InputStream terminationStream = FaironConceptRecognizer.class.getResourceAsStream("/termination_terms.fr.txt")) {
+            try (BufferedReader teminationReader = new BufferedReader(new InputStreamReader(terminationStream))) {
+                while (teminationReader.ready()) {
+                    terminationList.add(teminationReader.readLine());
+                }
+            }
+        } catch (final IOException e) {
+            logger.error(e.getLocalizedMessage());
+        }
+    }
+
 
     private void loadDictionary() throws IOException {
+        logger.debug("Now loading dictionary...");
         try (BufferedReader reader = Files.newBufferedReader(dictionaryPath)) {
             while (reader.ready()) {
                 final String line = reader.readLine();
@@ -90,11 +108,13 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                 conceptLengthIndex.put(conceptId, conceptTokenCount);
             }
         }
+        logger.debug("Concept Recognizer ready!");
     }
 
 
     @Override
     public List<AnnotationToken> recognize(final String inputText) {
+        logger.trace("Starting recognition");
         final Collection<AnnotationToken> annotations = new ArrayList<>();
         final String normalizedInputText = normalizeString(inputText);
         final Span[] tokenSpans = simpleTokenizer.tokenizePos(normalizedInputText);
@@ -103,19 +123,25 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
             final Span currentSpan = tokenSpans[currentTokenSpanIndex];
             final String token = tokenFromSpan(currentSpan, normalizedInputText);
 
-            if (!stopList.contains(token)) {
-                int matchCursor = 1;
-                int stopCount = 0;
-                Set<Long> concepts = getConceptsForStemFromIndex(stem(token));
+            if (!stopList.contains(token) && !terminationList.contains(token)) {
+                //Double stemming ensures we come back to the most elementary root, ensure match between nouns and adjectives with
+                //the same root
+                Set<Long> concepts = getConceptsForStemFromIndex(stem(stem(token)));
                 final int conceptStart = currentSpan.getStart();
                 int conceptEnd = currentSpan.getEnd();
+                logger.trace("Processing token {} in span [{},{}]", token, currentSpan.getStart(), currentSpan.getEnd());
+                logger.trace("\tExploring following words for multi-word expression...");
+                int matchCursor = 1;
+                int stopCount = 0;
                 while ((currentTokenSpanIndex + matchCursor) < tokenSpans.length) {
                     final Span nextSpan = tokenSpans[currentTokenSpanIndex + matchCursor];
                     final String nextToken = tokenFromSpan(nextSpan, inputText);
                     if (stopList.contains(nextToken)) {
                         stopCount++;
+                    } else if (terminationList.contains(nextToken)) {
+                        break;
                     } else {
-                        final String nextTokenStem = stem(nextToken);
+                        final String nextTokenStem = stem(stem(nextToken));
                         final Set<Long> nextConcepts = intersection(getConceptsForStemFromIndex(nextTokenStem), concepts);
                         if (nextConcepts.isEmpty()) {
                             break;
@@ -127,8 +153,8 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                     matchCursor++;
                 }
                 annotations.addAll(conceptsToAnnotationTokens(concepts, conceptStart, conceptEnd, inputText, matchCursor - stopCount));
-                currentTokenSpanIndex += matchCursor;
             }
+            currentTokenSpanIndex += 1;
         }
         return annotations
                 .stream()
@@ -168,9 +194,11 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     }
 
     private Collection<AnnotationToken> conceptsToAnnotationTokens(final Iterable<Long> concepts, final int start, final int end, final String text, final int tokenCardinality) {
+        final String conceptText = text.substring(start, end);
+        logger.trace("\tMatched \"{}\" in span [{},{}[", conceptText, start, end);
         final Collection<AnnotationToken> annotations = new ArrayList<>();
         for (final Long conceptID : concepts) {
-            annotations.add(AnnotationToken.create(start, end, text.substring(start, end), conceptID, tokenCardinality));
+            annotations.add(AnnotationToken.create(start, end, conceptText, conceptID, tokenCardinality));
         }
         return annotations;
     }
