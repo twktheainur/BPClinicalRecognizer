@@ -59,10 +59,10 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
     private ClinicalRecognizerServer(final int port, final Path dictionaryPath) {
         this.port = port;
 
-        final Allocator<ConceptRecognizer>  allocator = new FaironRecognizerAllocator(dictionaryPath);
+        final Allocator<ConceptRecognizer> allocator = new FaironRecognizerAllocator(dictionaryPath);
         final Config<ConceptRecognizer> config = new Config<ConceptRecognizer>().setAllocator(allocator);
         config.setBackgroundExpirationEnabled(false);
-        config.setSize(3);
+        config.setSize(2);
         recognizerPool = new BlazePool<>(config);
 
 //        //Forcing the creation of at least one object at startup
@@ -95,24 +95,25 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
         logger.debug("Accepting incoming connections on port {}", port);
 
         // Accept an incoming connection, handle it, then close and repeat.
-        while (keepRunning) {
-            try {
-                // Accept the next incoming connection
-                final Socket clientSocket = listenSocket.accept();
-
-                final Runnable handler = new RecognizerClientHandler(clientSocket, recognizerPool);
-                workers.execute(handler);
-
-            } catch (final SocketTimeoutException te) {
-                // Ignored, timeouts will happen every 1 second
-            } catch (final IOException ioe) {
-                logger.error("Exception occurred while handling client request: {}", ioe.getMessage());
-                // Yield to other threads if an exception occurs (prevent CPU
-                // spin)
-                yield();
-            }
-        }
         try {
+            while (keepRunning) {
+                try {
+                    // Accept the next incoming connection
+                    final Socket clientSocket = listenSocket.accept();
+
+                    final Runnable handler = new RecognizerClientHandler(clientSocket, recognizerPool);
+                    workers.execute(handler);
+
+                } catch (final SocketTimeoutException te) {
+                    // Ignored, timeouts will happen every 1 second
+                } catch (final IOException ioe) {
+                    logger.error("Exception occurred while handling client request: {}", ioe.getMessage());
+                    // Yield to other threads if an exception occurs (prevent CPU
+                    // spin)
+                    yield();
+                }
+            }
+
             // Make sure to release the port, otherwise it may remain bound for several minutes
             listenSocket.close();
         } catch (final IOException ioe) {

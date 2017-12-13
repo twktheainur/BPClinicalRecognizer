@@ -17,12 +17,12 @@ public class FaironRecognizerAllocator implements Allocator<ConceptRecognizer> {
     }
 
     @Override
-    public ConceptRecognizer allocate(final Slot slot) throws Exception {
+    public ConceptRecognizer allocate(final Slot slot) {
         return new FaironConceptRecognizer(slot,dictionaryPath);
     }
 
     @Override
-    public void deallocate(final ConceptRecognizer conceptRecognizer) throws Exception {
+    public void deallocate(final ConceptRecognizer conceptRecognizer) {
 
     }
 }

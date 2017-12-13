@@ -60,7 +60,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     }
 
     private void loadStopWords() {
-        logger.debug("Loading stopwords from resources");
+        logger.info("Loading stopwords from resources");
         try (InputStream stopStream = FaironConceptRecognizer.class.getResourceAsStream("/stopwords.fr.txt")) {
             try (BufferedReader stopReader = new BufferedReader(new InputStreamReader(stopStream))) {
                 while (stopReader.ready()) {
@@ -73,7 +73,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     }
 
     private void loadTerminationTerms() {
-        logger.debug("Loading termination terms from resources");
+        logger.info("Loading termination terms from resources");
         try (InputStream terminationStream = FaironConceptRecognizer.class.getResourceAsStream("/termination_terms.fr.txt")) {
             try (BufferedReader terminationReader = new BufferedReader(new InputStreamReader(terminationStream))) {
                 while (terminationReader.ready()) {
@@ -87,7 +87,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
 
 
     private void loadDictionary() throws IOException {
-        logger.debug("Now loading dictionary...");
+        logger.info("Now loading dictionary...");
         try (BufferedReader reader = Files.newBufferedReader(dictionaryPath)) {
             while (reader.ready()) {
                 final String line = reader.readLine();
@@ -117,52 +117,55 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                 conceptLengthIndex.put(conceptId, conceptTokenCount);
             }
         }
-        logger.debug("Concept Recognizer ready!");
+        logger.info("Concept Recognizer ready!");
     }
 
 
     @Override
     public List<AnnotationToken> recognize(final String inputText) {
-        logger.trace("Starting recognition");
-        final Collection<AnnotationToken> annotations = new ArrayList<>();
-        final String normalizedInputText = normalizeString(inputText);
-        final Span[] tokenSpans = simpleTokenizer.tokenizePos(normalizedInputText);
-        int currentTokenSpanIndex = 0;
-        while (currentTokenSpanIndex < tokenSpans.length) {
-            final Span currentSpan = tokenSpans[currentTokenSpanIndex];
-            final String token = tokenFromSpan(currentSpan, normalizedInputText);
+        Collection<AnnotationToken> annotations = Collections.emptyList();
+        if(inputText!=null) {
+            logger.debug("Starting recognition");
+            annotations = new ArrayList<>();
+            final String normalizedInputText = normalizeString(inputText);
+            final Span[] tokenSpans = simpleTokenizer.tokenizePos(normalizedInputText);
+            int currentTokenSpanIndex = 0;
+            while (currentTokenSpanIndex < tokenSpans.length) {
+                final Span currentSpan = tokenSpans[currentTokenSpanIndex];
+                final String token = tokenFromSpan(currentSpan, normalizedInputText);
 
-            if (!stopList.contains(token) && !terminationList.contains(token)) {
-                //Double stemming ensures we come back to the most elementary root, ensure match between nouns and adjectives with
-                //the same root
-                Set<Long> concepts = getConceptsForStemFromIndex(stem(stem(token)));
-                final int conceptStart = currentSpan.getStart();
-                int conceptEnd = currentSpan.getEnd();
-                logger.trace("Matching from token {} in span [{},{}]", token, currentSpan.getStart(), currentSpan.getEnd());
-                int matchCursor = 1;
-                int stopCount = 0;
-                while ((currentTokenSpanIndex + matchCursor) < tokenSpans.length) {
-                    final Span nextSpan = tokenSpans[currentTokenSpanIndex + matchCursor];
-                    final String nextToken = tokenFromSpan(nextSpan, normalizedInputText);
-                    if (stopList.contains(nextToken)) {
-                        stopCount++;
-                    } else if (terminationList.contains(nextToken)) {
-                        break;
-                    } else {
-                        final String nextTokenStem = stem(stem(nextToken));
-                        final Set<Long> nextConcepts = intersection(getConceptsForStemFromIndex(nextTokenStem), concepts);
-                        if (nextConcepts.isEmpty()) {
+                if (!stopList.contains(token) && !terminationList.contains(token)) {
+                    //Double stemming ensures we come back to the most elementary root, ensure match between nouns and adjectives with
+                    //the same root
+                    Set<Long> concepts = getConceptsForStemFromIndex(stem(stem(token)));
+                    final int conceptStart = currentSpan.getStart();
+                    int conceptEnd = currentSpan.getEnd();
+                    logger.debug("Matching from token {} in span [{},{}]", token, currentSpan.getStart(), currentSpan.getEnd());
+                    int matchCursor = 1;
+                    int stopCount = 0;
+                    while ((currentTokenSpanIndex + matchCursor) < tokenSpans.length) {
+                        final Span nextSpan = tokenSpans[currentTokenSpanIndex + matchCursor];
+                        final String nextToken = tokenFromSpan(nextSpan, normalizedInputText);
+                        if (stopList.contains(nextToken)) {
+                            stopCount++;
+                        } else if (terminationList.contains(nextToken)) {
                             break;
                         } else {
-                            concepts = nextConcepts;
-                            conceptEnd = nextSpan.getEnd();
+                            final String nextTokenStem = stem(stem(nextToken));
+                            final Set<Long> nextConcepts = intersection(getConceptsForStemFromIndex(nextTokenStem), concepts);
+                            if (nextConcepts.isEmpty()) {
+                                break;
+                            } else {
+                                concepts = nextConcepts;
+                                conceptEnd = nextSpan.getEnd();
+                            }
                         }
+                        matchCursor++;
                     }
-                    matchCursor++;
+                    annotations.addAll(conceptsToAnnotationTokens(concepts, conceptStart, conceptEnd, inputText, matchCursor - stopCount));
                 }
-                annotations.addAll(conceptsToAnnotationTokens(concepts, conceptStart, conceptEnd, inputText, matchCursor - stopCount));
+                currentTokenSpanIndex += 1;
             }
-            currentTokenSpanIndex += 1;
         }
         return annotations
                 .stream()
