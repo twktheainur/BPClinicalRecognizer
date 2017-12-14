@@ -3,9 +3,13 @@
 We start from the snowball code of the default french stemmer and add the following rules at the end of the standard suffix rules (see code below): 
 
 ​     //Medical extensions           
+
 ​            'pulmonaire'
+
 ​               (<- 'poumon')
+
 ​            'cardiaque' 'cardi' 'cardiaqu' 'cardiaqUe' 'cardiaqU'
+
 ​               (<- 'coeur')
 
 
