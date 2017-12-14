@@ -1,11 +1,12 @@
 package org.sifrproject.recognizer;
 
-import opennlp.tools.stemmer.Stemmer;
-import opennlp.tools.stemmer.snowball.SnowballStemmer;
+
 import opennlp.tools.tokenize.SimpleTokenizer;
 import opennlp.tools.util.Span;
+import org.sifrproject.stemming.FrenchClinicalStemmer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tartarus.snowball.SnowballStemmer;
 import stormpot.Poolable;
 import stormpot.Slot;
 
@@ -35,7 +36,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private final Collection<String> terminationList = new TreeSet<>();
 
-    private final Stemmer stemmer = new SnowballStemmer(SnowballStemmer.ALGORITHM.FRENCH);
+    private final SnowballStemmer stemmer = new FrenchClinicalStemmer();
     private final SimpleTokenizer simpleTokenizer = SimpleTokenizer.INSTANCE;
 
     private final Slot slot;
@@ -102,9 +103,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                 int conceptTokenCount = 0;
                 for (final String token : tokens) {
                     if (!stopList.contains(token)) {
-                        final String tokenStem = stemmer
-                                .stem(token)
-                                .toString();
+                        final String tokenStem = stem(token);
                         if (!dictionaryUnigramIndex.containsKey(tokenStem)) {
                             dictionaryUnigramIndex.put(tokenStem, new HashSet<>());
                         }
@@ -124,7 +123,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     @Override
     public List<AnnotationToken> recognize(final String inputText) {
         Collection<AnnotationToken> annotations = Collections.emptyList();
-        if(inputText!=null) {
+        if (inputText != null) {
             logger.debug("Starting recognition");
             annotations = new ArrayList<>();
             final String normalizedInputText = normalizeString(inputText);
@@ -195,10 +194,9 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                 .replaceAll("");
     }
 
-    private String stem(final CharSequence input) {
-        return stemmer
-                .stem(input)
-                .toString();
+    private String stem(final String input) {
+        stemmer.setCurrent(input);
+        return (stemmer.stem()) ? stemmer.getCurrent() : "";
     }
 
     private String tokenFromSpan(final Span span, final CharSequence text) {
