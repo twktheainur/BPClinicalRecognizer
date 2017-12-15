@@ -184,11 +184,22 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                 .collect(Collectors.toSet());
     }
 
+    private String normalizeCase(final String label) {
+        return (stopList.contains(label.toLowerCase()) && isAllCaps(label)) ? label : label.toLowerCase();
+    }
+
+    private boolean isAllCaps(final CharSequence input) {
+        int position = 0;
+        while (Character.isUpperCase(input.charAt(position)) && (position<input.length())) {
+            position++;
+        }
+        return position == input.length();
+    }
+
     private String normalizeString(final CharSequence input) {
         final String withoutPunctuation = NORMALIZE_PUNCTUATION
                 .matcher(input)
-                .replaceAll(" ")
-                .toLowerCase();
+                .replaceAll(" ");
         return NORMALIZE_DIACRITICS
                 .matcher(Normalizer.normalize(withoutPunctuation, Normalizer.Form.NFKD))
                 .replaceAll("");
