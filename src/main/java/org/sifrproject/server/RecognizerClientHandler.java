@@ -61,6 +61,7 @@ public class RecognizerClientHandler implements Runnable {
                 for (final AnnotationToken token : annotations) {
                     outputWriter.println(token);
                 }
+                outputWriter.println();
                 outputWriter.flush();
             } catch (final RuntimeException e) {
                 logger.error("Cannot obtain recognizer from pool: {}", e.getLocalizedMessage());
