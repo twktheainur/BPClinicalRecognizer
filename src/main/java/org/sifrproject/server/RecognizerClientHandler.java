@@ -32,7 +32,7 @@ public class RecognizerClientHandler implements Runnable {
                 outputWriter.flush();
 
                 String command = "init";
-                while (!command.isEmpty()) {
+                while ((command != null) && !command.isEmpty()) {
                     if(!command.equals("init")) {
                         final String text = command.substring(3);
                         if (!text.isEmpty()) {
