@@ -18,7 +18,7 @@ public class RecognizerClientHandler implements Runnable {
     private final Pool<ConceptRecognizer> recognizerPool;
     private final Timeout poolTimeout = new Timeout(1, TimeUnit.SECONDS);
 
-    public RecognizerClientHandler(final Socket clientSocket, final Pool<ConceptRecognizer> recognizerPool) {
+    RecognizerClientHandler(final Socket clientSocket, final Pool<ConceptRecognizer> recognizerPool) {
         this.clientSocket = clientSocket;
         this.recognizerPool = recognizerPool;
     }
@@ -36,11 +36,13 @@ public class RecognizerClientHandler implements Runnable {
 
                 String command = "init";
                 while (!command.isEmpty()) {
-                    command = userInput.readLine();
-                    final String text = command.substring(3);
-                    if (!text.isEmpty()) {
-                        annotateAndWrite(text, outputWriter);
+                    if(!command.equals("init")) {
+                        final String text = command.substring(3);
+                        if (!text.isEmpty()) {
+                            annotateAndWrite(text, outputWriter);
+                        }
                     }
+                    command = userInput.readLine();
                 }
             } catch (final UnsupportedEncodingException e) {
                 logger.error("Encoding error: {}", e.getLocalizedMessage());
