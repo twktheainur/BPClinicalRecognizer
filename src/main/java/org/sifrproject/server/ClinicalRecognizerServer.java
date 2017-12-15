@@ -1,13 +1,10 @@
 package org.sifrproject.server;
 
 import org.sifrproject.recognizer.ConceptRecognizer;
-import org.sifrproject.recognizer.pool.FaironRecognizerAllocator;
+import org.sifrproject.recognizer.FaironConceptRecognizer;
+import org.sifrproject.recognizer.SynchronizedConceptRecognizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import stormpot.Allocator;
-import stormpot.BlazePool;
-import stormpot.Config;
-import stormpot.Pool;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -34,7 +31,7 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
 
     private final int port;
     private final Thread thread = new Thread(this);
-    private final Pool<ConceptRecognizer> recognizerPool;
+    private final ConceptRecognizer conceptRecognizer;
 
     /**
      * Pool of worker threads of unbounded size. A new thread will be created
@@ -56,12 +53,12 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
 
     private ClinicalRecognizerServer(final int port, final Path dictionaryPath) {
         this.port = port;
-
-        final Allocator<ConceptRecognizer> allocator = new FaironRecognizerAllocator(dictionaryPath);
-        final Config<ConceptRecognizer> config = new Config<ConceptRecognizer>().setAllocator(allocator);
-        config.setBackgroundExpirationEnabled(false);
-        config.setSize(2);
-        recognizerPool = new BlazePool<>(config);
+        conceptRecognizer = new SynchronizedConceptRecognizer(new FaironConceptRecognizer(dictionaryPath));
+//        final Allocator<ConceptRecognizer> allocator = new FaironRecognizerAllocator(dictionaryPath);
+//        final Config<ConceptRecognizer> config = new Config<ConceptRecognizer>().setAllocator(allocator);
+//        config.setBackgroundExpirationEnabled(false);
+//        config.setSize(2);
+//        recognizerPool = new BlazePool<>(config);
 
 //        //Forcing the creation of at least one object at startup
 //        try {
@@ -99,7 +96,7 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
                     // Accept the next incoming connection
                     final Socket clientSocket = listenSocket.accept();
 
-                    final Runnable handler = new RecognizerClientHandler(clientSocket, recognizerPool);
+                    final Runnable handler = new RecognizerClientHandler(clientSocket, conceptRecognizer);
                     workers.execute(handler);
 
                 } catch (final SocketTimeoutException te) {
