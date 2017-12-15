@@ -33,9 +33,9 @@ public class RecognizerClientHandler implements Runnable {
                 outputWriter.println("4");
                 outputWriter.flush();
                 final String command = userInput.readLine();
-                final String[] commandParts = command.split("\t");
-                if (commandParts.length > 1) {
-                    annotateAndWrite(commandParts[1],outputWriter);
+                final String text = command.substring(3);
+                if (!text.isEmpty()) {
+                    annotateAndWrite(text,outputWriter);
                 }
             } catch (final UnsupportedEncodingException e) {
                 logger.error("Encoding error: {}", e.getLocalizedMessage());
@@ -61,7 +61,6 @@ public class RecognizerClientHandler implements Runnable {
                 for (final AnnotationToken token : annotations) {
                     outputWriter.println(token);
                 }
-                outputWriter.println();
                 outputWriter.flush();
             } catch (final RuntimeException e) {
                 logger.error("Cannot obtain recognizer from pool: {}", e.getLocalizedMessage());
