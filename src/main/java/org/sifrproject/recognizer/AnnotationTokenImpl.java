@@ -43,6 +43,6 @@ public class AnnotationTokenImpl implements AnnotationToken {
 
     @Override
     public String toString() {
-        return String.format("%d\t%d\t%d\t%s", conceptId, start, end, text);
+        return String.format("%d\t%d\t%d\t%s", conceptId, start +1, end, text);
     }
 }
