@@ -29,13 +29,18 @@ public class RecognizerClientHandler implements Runnable {
         try (BufferedReader userInput = new BufferedReader(new InputStreamReader(
                 clientSocket.getInputStream()))) {
             try (PrintWriter outputWriter = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream(), "UTF8"))) {
+                //Initializing protocol
                 outputWriter.println("mgrep");
                 outputWriter.println("4");
                 outputWriter.flush();
-                final String command = userInput.readLine();
-                final String text = command.substring(3);
-                if (!text.isEmpty()) {
-                    annotateAndWrite(text,outputWriter);
+
+                String command = "init";
+                while (!command.isEmpty()) {
+                    command = userInput.readLine();
+                    final String text = command.substring(3);
+                    if (!text.isEmpty()) {
+                        annotateAndWrite(text, outputWriter);
+                    }
                 }
             } catch (final UnsupportedEncodingException e) {
                 logger.error("Encoding error: {}", e.getLocalizedMessage());
