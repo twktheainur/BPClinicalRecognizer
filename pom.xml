@@ -52,7 +52,7 @@
                         </descriptorRefs>
                         <archive>
                             <manifest>
-                                <mainClass>org.sifrproject.ClinicalRecognizerServer</mainClass>
+                                <mainClass>org.sifrproject.server.ClinicalRecognizerServer</mainClass>
                             </manifest>
                         </archive>
                         <finalName>clinicalrecognizer</finalName>

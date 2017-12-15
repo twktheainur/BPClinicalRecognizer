@@ -36,6 +36,7 @@ public class RecognizerClientHandler implements Runnable {
                 final String[] commandParts = command.split("\t");
                 if (commandParts.length > 1) {
                     annotateAndWrite(commandParts[1],outputWriter);
+                    outputWriter.println();
                 }
             } catch (final UnsupportedEncodingException e) {
                 logger.error("Encoding error: {}", e.getLocalizedMessage());

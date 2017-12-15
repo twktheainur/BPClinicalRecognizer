@@ -1,9 +1,7 @@
-package org.sifrproject;
+package org.sifrproject.server;
 
 import org.sifrproject.recognizer.ConceptRecognizer;
 import org.sifrproject.recognizer.pool.FaironRecognizerAllocator;
-import org.sifrproject.server.RecognizerClientHandler;
-import org.sifrproject.server.StartStopJoinRunnable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import stormpot.Allocator;
