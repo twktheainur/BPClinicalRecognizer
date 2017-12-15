@@ -123,7 +123,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     @Override
     public List<AnnotationToken> recognize(final String inputText) {
         Collection<AnnotationToken> annotations = Collections.emptyList();
-        if (inputText != null) {
+        if ((inputText != null) && !inputText.isEmpty()) {
             logger.debug("Starting recognition");
             annotations = new ArrayList<>();
             final String normalizedInputText = normalizeString(inputText);
