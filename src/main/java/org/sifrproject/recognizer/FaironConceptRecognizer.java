@@ -217,7 +217,8 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     }
 
     private Collection<AnnotationToken> conceptsToAnnotationTokens(final Iterable<Long> concepts, final int start, final int end, final String text, final int tokenCardinality) {
-        final String conceptText = text.substring(start, end);
+        final int adjustedEnd = Math.min(end,text.length()-1);
+        final String conceptText = text.substring(start, adjustedEnd);
         logger.trace("\tMatched \"{}\" in span [{},{}[", conceptText, start, end);
         final Collection<AnnotationToken> annotations = new ArrayList<>();
         for (final Long conceptID : concepts) {
