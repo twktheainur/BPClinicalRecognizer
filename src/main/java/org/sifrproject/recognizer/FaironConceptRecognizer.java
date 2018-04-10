@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private static final Logger logger = LoggerFactory.getLogger(FaironConceptRecognizer.class);
-    private static final Pattern NORMALIZE_PUNCTUATION = Pattern.compile("['\\[\\]{}()]");
+    private static final Pattern NORMALIZE_PUNCTUATION = Pattern.compile("['\\[\\]{}()-]");
     private static final Pattern NORMALIZE_DIACRITICS = Pattern.compile("[\\p{M}]");
 
     private final Path dictionaryPath;
@@ -103,7 +103,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                 int conceptTokenCount = 0;
                 for (final String token : tokens) {
                     if (!stopList.contains(token)) {
-                        final String tokenStem = stem(token);
+                        final String tokenStem = stem(stem(token));
                         if (!dictionaryUnigramIndex.containsKey(tokenStem)) {
                             dictionaryUnigramIndex.put(tokenStem, new HashSet<>());
                         }
@@ -202,7 +202,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                 .replaceAll(" ");
         return NORMALIZE_DIACRITICS
                 .matcher(Normalizer.normalize(withoutPunctuation, Normalizer.Form.NFKD))
-                .replaceAll("");
+                .replaceAll("").toLowerCase();
     }
 
     private String stem(final String input) {
@@ -217,12 +217,12 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     }
 
     private Collection<AnnotationToken> conceptsToAnnotationTokens(final Iterable<Long> concepts, final int start, final int end, final String text, final int tokenCardinality) {
-        final int adjustedEnd = Math.min(end,text.length()-1);
+        final int adjustedEnd = Math.min(end,text.length());
         final String conceptText = text.substring(start, adjustedEnd);
-        logger.trace("\tMatched \"{}\" in span [{},{}[", conceptText, start, end);
+        logger.trace("\tMatched \"{}\" in span [{},{}[", conceptText, start +1, end);
         final Collection<AnnotationToken> annotations = new ArrayList<>();
         for (final Long conceptID : concepts) {
-            annotations.add(AnnotationToken.create(start, end, conceptText, conceptID, tokenCardinality));
+            annotations.add(AnnotationToken.create(start+1, end, conceptText, conceptID, tokenCardinality));
         }
         return annotations;
     }
