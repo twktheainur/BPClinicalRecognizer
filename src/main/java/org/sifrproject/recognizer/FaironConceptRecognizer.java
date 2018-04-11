@@ -62,7 +62,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private void loadStopWords() {
         logger.info("Loading stopwords from resources");
-        try (InputStream stopStream = FaironConceptRecognizer.class.getResourceAsStream("/stopwords.fr.txt")) {
+        try (InputStream stopStream = FaironConceptRecognizer.class.getClassLoader().getResourceAsStream("stopwords.fr.txt")) {
             try (BufferedReader stopReader = new BufferedReader(new InputStreamReader(stopStream))) {
                 while (stopReader.ready()) {
                     stopList.add(stopReader.readLine());
@@ -75,7 +75,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private void loadTerminationTerms() {
         logger.info("Loading termination terms from resources");
-        try (InputStream terminationStream = FaironConceptRecognizer.class.getResourceAsStream("/termination_terms.fr.txt")) {
+        try (InputStream terminationStream = FaironConceptRecognizer.class.getClassLoader().getResourceAsStream("termination_terms.fr.txt")) {
             try (BufferedReader terminationReader = new BufferedReader(new InputStreamReader(terminationStream))) {
                 while (terminationReader.ready()) {
                     terminationList.add(terminationReader.readLine());

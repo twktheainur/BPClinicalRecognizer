@@ -18,7 +18,7 @@ public class FaironConceptRecognizerTest extends TestCase {
     private final ConceptRecognizer conceptRecognizer;
 
     public FaironConceptRecognizerTest() {
-        conceptRecognizer = new FaironConceptRecognizer(FaironConceptRecognizerTest.class.getResourceAsStream("/dictionary.txt"));
+        conceptRecognizer = new FaironConceptRecognizer(FaironConceptRecognizerTest.class.getClassLoader().getResourceAsStream("dictionary.txt"));
     }
 
     @Override
