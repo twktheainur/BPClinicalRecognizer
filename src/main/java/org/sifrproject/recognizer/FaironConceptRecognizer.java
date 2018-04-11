@@ -24,8 +24,10 @@ import java.util.stream.Collectors;
 public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private static final Logger logger = LoggerFactory.getLogger(FaironConceptRecognizer.class);
-    private static final Pattern NORMALIZE_PUNCTUATION = Pattern.compile("['\\[\\]{}()-]");
-    private static final Pattern NORMALIZE_DIACRITICS = Pattern.compile("[\\p{M}]");
+//    private static final Pattern NORMALIZE_PUNCTUATION = Pattern.compile("['\\[\\]{}()]",Pattern.UNICODE_CHARACTER_CLASS);
+    private static final Pattern NORMALIZE_DIACRITICS = Pattern.compile("[\\p{M}]",Pattern.UNICODE_CHARACTER_CLASS);
+    private static final Pattern PUNCTUATION = Pattern.compile("\\p{Punct}",Pattern.UNICODE_CHARACTER_CLASS);
+    private static final Pattern ALPHANUM = Pattern.compile("^[\\pL\\pN]*$",Pattern.UNICODE_CHARACTER_CLASS);
 
     private final Path dictionaryPath;
 
@@ -97,12 +99,13 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                 final Long conceptId = Long.valueOf(fields[0]);
 
                 final String normalizedLabel = normalizeString(label);
+                final String withoutPunctuation = stripPunctuation(normalizedLabel);
 
-                final String[] tokens = simpleTokenizer.tokenize(normalizedLabel);
+                final String[] tokens = simpleTokenizer.tokenize(withoutPunctuation);
 
                 int conceptTokenCount = 0;
                 for (final String token : tokens) {
-                    if (!stopList.contains(token)) {
+                    if (!stopList.contains(token) && ALPHANUM.matcher(token).matches()) {
                         final String tokenStem = stem(stem(token));
                         if (!dictionaryUnigramIndex.containsKey(tokenStem)) {
                             dictionaryUnigramIndex.put(tokenStem, new HashSet<>());
@@ -121,7 +124,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
 
 
     @Override
-    public List<AnnotationToken> recognize(final String inputText) {
+    public List<AnnotationToken> recognize(final String inputText, final boolean longestOnly) {
         Collection<AnnotationToken> annotations = Collections.emptyList();
         if ((inputText != null) && !inputText.isEmpty()) {
             logger.debug("Starting recognition");
@@ -131,7 +134,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
             int currentTokenSpanIndex = 0;
             while (currentTokenSpanIndex < tokenSpans.length) {
                 final Span currentSpan = tokenSpans[currentTokenSpanIndex];
-                final String token = tokenFromSpan(currentSpan, normalizedInputText);
+                final String token = tokenFromSpan(currentSpan, normalizedInputText).trim();
 
                 if (!stopList.contains(token) && !terminationList.contains(token)) {
                     //Double stemming ensures we come back to the most elementary root, ensure match between nouns and adjectives with
@@ -197,12 +200,18 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     }
 
     private String normalizeString(final CharSequence input) {
-        final String withoutPunctuation = NORMALIZE_PUNCTUATION
-                .matcher(input)
-                .replaceAll(" ");
+//        final String withoutPunctuation = NORMALIZE_PUNCTUATION
+//                .matcher(input)
+//                .replaceAll(" ");
         return NORMALIZE_DIACRITICS
-                .matcher(Normalizer.normalize(withoutPunctuation, Normalizer.Form.NFKD))
+                .matcher(Normalizer.normalize(input, Normalizer.Form.NFKD))
                 .replaceAll("").toLowerCase();
+    }
+
+    private String stripPunctuation(final CharSequence text){
+        return PUNCTUATION
+                .matcher(text)
+                .replaceAll(" ");
     }
 
     private String stem(final String input) {

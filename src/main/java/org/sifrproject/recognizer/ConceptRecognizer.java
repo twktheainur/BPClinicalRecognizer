@@ -5,5 +5,5 @@ import stormpot.Poolable;
 import java.util.List;
 
 public interface ConceptRecognizer extends Poolable {
-    List<AnnotationToken> recognize(String inputText);
+    List<AnnotationToken> recognize(String inputText, boolean longestOnly);
 }
