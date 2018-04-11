@@ -6,7 +6,10 @@ import org.sifrproject.recognizer.SynchronizedConceptRecognizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -51,10 +54,10 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
     private volatile boolean keepRunning = true;
 
 
-    private ClinicalRecognizerServer(final int port, final Path dictionaryPath) {
+    private ClinicalRecognizerServer(final int port, final InputStream dictionaryStream) {
         this.port = port;
-        conceptRecognizer = new SynchronizedConceptRecognizer(new FaironConceptRecognizer(dictionaryPath));
-//        final Allocator<ConceptRecognizer> allocator = new FaironRecognizerAllocator(dictionaryPath);
+        conceptRecognizer = new SynchronizedConceptRecognizer(new FaironConceptRecognizer(dictionaryStream));
+//        final Allocator<ConceptRecognizer> allocator = new FaironRecognizerAllocator(dictionaryStream);
 //        final Config<ConceptRecognizer> config = new Config<ConceptRecognizer>().setAllocator(allocator);
 //        config.setBackgroundExpirationEnabled(false);
 //        config.setSize(2);
@@ -149,7 +152,7 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
     }
 
     @SuppressWarnings("LocalVariableOfConcreteClass")
-    public static void main(final String[] args) {
+    public static void main(final String[] args) throws FileNotFoundException {
 
         if (args.length < 2) {
             usage();
@@ -171,7 +174,7 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
         final Path dictionaryPath = Paths.get(args[1]);
 
 
-        final StartStopJoinRunnable server = new ClinicalRecognizerServer(port, dictionaryPath);
+        final StartStopJoinRunnable server = new ClinicalRecognizerServer(port, new FileInputStream(dictionaryPath.toFile()));
         server.start();
     }
 }

@@ -4,9 +4,6 @@ import junit.framework.TestCase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URISyntaxException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 @SuppressWarnings("PublicMethodNotExposedInInterface")
@@ -20,9 +17,8 @@ public class FaironConceptRecognizerTest extends TestCase {
 
     private final ConceptRecognizer conceptRecognizer;
 
-    public FaironConceptRecognizerTest() throws URISyntaxException {
-        final Path dictionaryPath = Paths.get(FaironConceptRecognizerTest.class.getResource("/dictionary.txt").toURI());
-        conceptRecognizer = new FaironConceptRecognizer(dictionaryPath);
+    public FaironConceptRecognizerTest() {
+        conceptRecognizer = new FaironConceptRecognizer(FaironConceptRecognizerTest.class.getResourceAsStream("/dictionary.txt"));
     }
 
     @Override

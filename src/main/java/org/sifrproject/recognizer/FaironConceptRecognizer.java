@@ -14,8 +14,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.text.Normalizer;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -29,7 +27,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
     private static final Pattern PUNCTUATION = Pattern.compile("\\p{Punct}",Pattern.UNICODE_CHARACTER_CLASS);
     private static final Pattern ALPHANUM = Pattern.compile("^[\\pL\\pN]*$",Pattern.UNICODE_CHARACTER_CLASS);
 
-    private final Path dictionaryPath;
+    private final InputStream dictionaryStream;
 
     private final Map<String, Set<Long>> dictionaryUnigramIndex;
     private final Map<Long, Integer> conceptLengthIndex;
@@ -43,8 +41,8 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private final Slot slot;
 
-    public FaironConceptRecognizer(final Slot slot, final Path dictionaryPath) {
-        this.dictionaryPath = dictionaryPath;
+    public FaironConceptRecognizer(final Slot slot, final InputStream dictionaryStream) {
+        this.dictionaryStream = dictionaryStream;
         dictionaryUnigramIndex = new HashMap<>();
         conceptLengthIndex = new HashMap<>();
         this.slot = slot;
@@ -58,8 +56,8 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
         }
     }
 
-    public FaironConceptRecognizer(final Path dictionaryPath) {
-        this(new DummySlot(), dictionaryPath);
+    public FaironConceptRecognizer(final InputStream dictionaryStream) {
+        this(new DummySlot(), dictionaryStream);
     }
 
     private void loadStopWords() {
@@ -91,7 +89,7 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private void loadDictionary() throws IOException {
         logger.info("Now loading dictionary...");
-        try (BufferedReader reader = Files.newBufferedReader(dictionaryPath)) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(dictionaryStream))) {
             while (reader.ready()) {
                 final String line = reader.readLine();
                 final String[] fields = line.split("\t");
