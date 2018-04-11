@@ -11,8 +11,8 @@ public class SynchronizedConceptRecognizer implements ConceptRecognizer {
     }
 
     @Override
-    public synchronized List<AnnotationToken> recognize(final String inputText) {
-        return conceptRecognizer.recognize(inputText);
+    public synchronized List<AnnotationToken> recognize(final String inputText, boolean longestOnly) {
+        return conceptRecognizer.recognize(inputText,longestOnly);
     }
 
     @Override

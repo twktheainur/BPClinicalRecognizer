@@ -32,7 +32,7 @@ public class FaironConceptRecognizerTest extends TestCase {
 
     public void testRecognize_simple() {
         //DéSAMORçARGE CARDIO-CIRCULATOIRE
-        final List<AnnotationToken> tokenList = conceptRecognizer.recognize(TEXT_1);
+        final List<AnnotationToken> tokenList = conceptRecognizer.recognize(TEXT_1, false);
         for (final AnnotationToken annotationToken: tokenList){
             assert annotationToken.getText().equals(TEXT_1);
             assert annotationToken.getStart() == 1;
@@ -43,7 +43,7 @@ public class FaironConceptRecognizerTest extends TestCase {
 
     public void testRecognize_medication_notice() {
         //DéSAMORçARGE CARDIO-CIRCULATOIRE
-        final List<AnnotationToken> tokenList = conceptRecognizer.recognize(TEXT_2);
+        final List<AnnotationToken> tokenList = conceptRecognizer.recognize(TEXT_2, false);
         for (final AnnotationToken annotationToken: tokenList){
             if(annotationToken.getText().equals("CAS")) {
                 assert ((annotationToken.getStart() == CAS_START) && (annotationToken.getEnd() == CAS_END));

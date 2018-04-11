@@ -61,7 +61,7 @@ public class RecognizerClientHandler implements Runnable {
 //            final ConceptRecognizer conceptRecognizer = recognizerPool.claim(poolTimeout);
 //            try {
 
-                final List<AnnotationToken> annotations = conceptRecognizer.recognize(text);
+                final List<AnnotationToken> annotations = conceptRecognizer.recognize(text,false);
                 for (final AnnotationToken token : annotations) {
                     outputWriter.println(token);
                 }
