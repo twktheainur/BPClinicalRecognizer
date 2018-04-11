@@ -27,4 +27,4 @@ target/
 
 *.iml
 
-*.txt
+./*.txt
