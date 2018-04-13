@@ -3,6 +3,9 @@ package org.sifrproject.recognizer;
 
 import opennlp.tools.tokenize.SimpleTokenizer;
 import opennlp.tools.util.Span;
+import org.sifrproject.recognizer.util.Sets;
+import org.sifrproject.recognizer.util.Strings;
+import org.sifrproject.recognizer.util.Tokens;
 import org.sifrproject.stemming.FrenchClinicalStemmer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,27 +17,21 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.text.Normalizer;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private static final Logger logger = LoggerFactory.getLogger(FaironConceptRecognizer.class);
-//    private static final Pattern NORMALIZE_PUNCTUATION = Pattern.compile("['\\[\\]{}()]",Pattern.UNICODE_CHARACTER_CLASS);
-    private static final Pattern NORMALIZE_DIACRITICS = Pattern.compile("[\\p{M}]",Pattern.UNICODE_CHARACTER_CLASS);
-    private static final Pattern PUNCTUATION = Pattern.compile("\\p{Punct}",Pattern.UNICODE_CHARACTER_CLASS);
-    private static final Pattern ALPHANUM = Pattern.compile("^[\\pL\\pN]*$",Pattern.UNICODE_CHARACTER_CLASS);
 
     private final InputStream dictionaryStream;
 
     private final Map<String, Set<Long>> dictionaryUnigramIndex;
     private final Map<Long, Integer> conceptLengthIndex;
 
-    private final Collection<String> stopList = new TreeSet<>();
+    private final Collection<String> stopList;
 
-    private final Collection<String> terminationList = new TreeSet<>();
+    private final Collection<String> terminationList;
 
     private final SnowballStemmer stemmer = new FrenchClinicalStemmer();
     private final SimpleTokenizer simpleTokenizer = SimpleTokenizer.INSTANCE;
@@ -45,6 +42,8 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
         this.dictionaryStream = dictionaryStream;
         dictionaryUnigramIndex = new HashMap<>();
         conceptLengthIndex = new HashMap<>();
+        stopList = new TreeSet<>();
+        terminationList = new TreeSet<>();
         this.slot = slot;
         loadStopWords();
         loadTerminationTerms();
@@ -62,7 +61,9 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private void loadStopWords() {
         logger.info("Loading stopwords from resources");
-        try (InputStream stopStream = FaironConceptRecognizer.class.getClassLoader().getResourceAsStream("stopwords.fr.txt")) {
+        try (InputStream stopStream = FaironConceptRecognizer.class
+                .getClassLoader()
+                .getResourceAsStream("stopwords.fr.txt")) {
             try (BufferedReader stopReader = new BufferedReader(new InputStreamReader(stopStream))) {
                 while (stopReader.ready()) {
                     stopList.add(stopReader.readLine());
@@ -75,7 +76,9 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
 
     private void loadTerminationTerms() {
         logger.info("Loading termination terms from resources");
-        try (InputStream terminationStream = FaironConceptRecognizer.class.getClassLoader().getResourceAsStream("termination_terms.fr.txt")) {
+        try (InputStream terminationStream = FaironConceptRecognizer.class
+                .getClassLoader()
+                .getResourceAsStream("termination_terms.fr.txt")) {
             try (BufferedReader terminationReader = new BufferedReader(new InputStreamReader(terminationStream))) {
                 while (terminationReader.ready()) {
                     terminationList.add(terminationReader.readLine());
@@ -96,14 +99,13 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                 final String label = fields[1];
                 final Long conceptId = Long.valueOf(fields[0]);
 
-                final String normalizedLabel = normalizeString(label);
-                final String withoutPunctuation = stripPunctuation(normalizedLabel);
+                final String normalizedLabel = Strings.normalizeStringAndStripPuctuation(label);
 
-                final String[] tokens = simpleTokenizer.tokenize(withoutPunctuation);
+                final String[] tokens = simpleTokenizer.tokenize(normalizedLabel);
 
                 int conceptTokenCount = 0;
                 for (final String token : tokens) {
-                    if (!stopList.contains(token) && ALPHANUM.matcher(token).matches()) {
+                    if (!stopList.contains(token) && Strings.isAlphaNum(token)) {
                         final String tokenStem = stem(stem(token));
                         if (!dictionaryUnigramIndex.containsKey(tokenStem)) {
                             dictionaryUnigramIndex.put(tokenStem, new HashSet<>());
@@ -127,12 +129,14 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
         if ((inputText != null) && !inputText.isEmpty()) {
             logger.debug("Starting recognition");
             annotations = new ArrayList<>();
-            final String normalizedInputText = normalizeString(inputText);
+            final String normalizedInputText = Strings.normalizeString(inputText);
             final Span[] tokenSpans = simpleTokenizer.tokenizePos(normalizedInputText);
             int currentTokenSpanIndex = 0;
             while (currentTokenSpanIndex < tokenSpans.length) {
                 final Span currentSpan = tokenSpans[currentTokenSpanIndex];
-                final String token = tokenFromSpan(currentSpan, normalizedInputText).trim();
+                final String token = Tokens
+                        .tokenFromSpan(currentSpan, normalizedInputText)
+                        .trim();
 
                 if (!stopList.contains(token) && !terminationList.contains(token)) {
                     //Double stemming ensures we come back to the most elementary root, ensure match between nouns and adjectives with
@@ -145,14 +149,14 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                     int stopCount = 0;
                     while ((currentTokenSpanIndex + matchCursor) < tokenSpans.length) {
                         final Span nextSpan = tokenSpans[currentTokenSpanIndex + matchCursor];
-                        final String nextToken = tokenFromSpan(nextSpan, normalizedInputText);
+                        final String nextToken = Tokens.tokenFromSpan(nextSpan, normalizedInputText);
                         if (stopList.contains(nextToken)) {
                             stopCount++;
                         } else if (terminationList.contains(nextToken)) {
                             break;
                         } else {
                             final String nextTokenStem = stem(stem(nextToken));
-                            final Set<Long> nextConcepts = intersection(getConceptsForStemFromIndex(nextTokenStem), concepts);
+                            final Set<Long> nextConcepts = Sets.intersection(getConceptsForStemFromIndex(nextTokenStem), concepts);
                             if (nextConcepts.isEmpty()) {
                                 break;
                             } else {
@@ -162,11 +166,15 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
                         }
                         matchCursor++;
                     }
-                    annotations.addAll(conceptsToAnnotationTokens(concepts, conceptStart, conceptEnd, inputText, matchCursor - stopCount));
+                    annotations.addAll(Tokens.conceptsToAnnotationTokens(concepts, conceptStart, conceptEnd, inputText, matchCursor - stopCount));
                 }
                 currentTokenSpanIndex += 1;
             }
         }
+        return filterToMaximumLength(annotations);
+    }
+
+    private List<AnnotationToken> filterToMaximumLength(final Collection<AnnotationToken> annotations){
         return annotations
                 .stream()
                 .filter(a -> a.getTokenCardinality() == conceptLengthIndex.get(a.getConceptId()))
@@ -178,61 +186,12 @@ public class FaironConceptRecognizer implements ConceptRecognizer {
         return (result == null) ? Collections.emptySet() : result;
     }
 
-    private Set<Long> intersection(final Collection<Long> setA, final Set<Long> setB) {
-        return setA
-                .stream()
-                .filter(setB::contains)
-                .collect(Collectors.toSet());
-    }
-
-    private String normalizeCase(final String label) {
-        return (stopList.contains(label.toLowerCase()) && isAllCaps(label)) ? label : label.toLowerCase();
-    }
-
-    private boolean isAllCaps(final CharSequence input) {
-        int position = 0;
-        while (Character.isUpperCase(input.charAt(position)) && (position<input.length())) {
-            position++;
-        }
-        return position == input.length();
-    }
-
-    private String normalizeString(final CharSequence input) {
-//        final String withoutPunctuation = NORMALIZE_PUNCTUATION
-//                .matcher(input)
-//                .replaceAll(" ");
-        return NORMALIZE_DIACRITICS
-                .matcher(Normalizer.normalize(input, Normalizer.Form.NFKD))
-                .replaceAll("").toLowerCase();
-    }
-
-    private String stripPunctuation(final CharSequence text){
-        return PUNCTUATION
-                .matcher(text)
-                .replaceAll(" ");
-    }
 
     private String stem(final String input) {
         stemmer.setCurrent(input);
         return (stemmer.stem()) ? stemmer.getCurrent() : "";
     }
 
-    private String tokenFromSpan(final Span span, final CharSequence text) {
-        return text
-                .subSequence(span.getStart(), span.getEnd())
-                .toString();
-    }
-
-    private Collection<AnnotationToken> conceptsToAnnotationTokens(final Iterable<Long> concepts, final int start, final int end, final String text, final int tokenCardinality) {
-        final int adjustedEnd = Math.min(end,text.length());
-        final String conceptText = text.substring(start, adjustedEnd);
-        logger.trace("\tMatched \"{}\" in span [{},{}[", conceptText, start +1, end);
-        final Collection<AnnotationToken> annotations = new ArrayList<>();
-        for (final Long conceptID : concepts) {
-            annotations.add(AnnotationToken.create(start+1, end, conceptText, conceptID, tokenCardinality));
-        }
-        return annotations;
-    }
 
     @Override
     public void release() {
