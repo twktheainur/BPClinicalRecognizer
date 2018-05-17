@@ -118,6 +118,11 @@
             <artifactId>stormpot</artifactId>
             <version>2.4</version>
         </dependency>
+        <dependency>
+            <groupId>commons-daemon</groupId>
+            <artifactId>commons-daemon</artifactId>
+            <version>1.1.0</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/com.github.rholder/snowball-stemmer -->
     </dependencies>
 </project>

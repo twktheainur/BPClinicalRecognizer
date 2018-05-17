@@ -1,6 +1,7 @@
 package org.sifrproject.recognizer;
 
 import junit.framework.TestCase;
+import org.sifrproject.server.ClinicalRecognizerServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +19,7 @@ public class FaironConceptRecognizerTest extends TestCase {
     private final ConceptRecognizer conceptRecognizer;
 
     public FaironConceptRecognizerTest() {
-        conceptRecognizer = new FaironConceptRecognizer(FaironConceptRecognizerTest.class.getClassLoader().getResourceAsStream("dictionary.txt"));
+        conceptRecognizer = new FaironConceptRecognizer(FaironConceptRecognizerTest.class.getClassLoader().getResourceAsStream(ClinicalRecognizerServer.DICTIONARY_DEFAULT_NAME));
     }
 
     @Override

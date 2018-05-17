@@ -1,20 +1,19 @@
 package org.sifrproject.server;
 
+import org.apache.commons.daemon.DaemonContext;
 import org.sifrproject.recognizer.ConceptRecognizer;
 import org.sifrproject.recognizer.FaironConceptRecognizer;
 import org.sifrproject.recognizer.SynchronizedConceptRecognizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -31,6 +30,10 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
     //private final Properties configuration;
     private static final Logger logger = LoggerFactory.getLogger(ClinicalRecognizerServer.class);
     private static final int TCP_PORT_MAX = 65536;
+    private static final String AN_EXCEPTION_OCCURRED_WHILE_CREATING_THE_LISTEN_SOCKET = "An exception occurred while creating the listen socket: {}";
+    public static final String DICTIONARY_DEFAULT_NAME = "dictionary.txt";
+    private static final String DEFAULT_CONFIG_PATH = Paths.get(File.separator+"etc","bpclinrec","config.xml").toAbsolutePath().toString();
+    private static final long KEEP_ALIVE_TIME = 600L;
 
     private final int port;
     private final Thread thread = new Thread(this);
@@ -57,27 +60,40 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
     private ClinicalRecognizerServer(final int port, final InputStream dictionaryStream) {
         this.port = port;
         conceptRecognizer = new SynchronizedConceptRecognizer(new FaironConceptRecognizer(dictionaryStream));
-//        final Allocator<ConceptRecognizer> allocator = new FaironRecognizerAllocator(dictionaryStream);
-//        final Config<ConceptRecognizer> config = new Config<ConceptRecognizer>().setAllocator(allocator);
-//        config.setBackgroundExpirationEnabled(false);
-//        config.setSize(2);
-//        recognizerPool = new BlazePool<>(config);
-
-//        //Forcing the creation of at least one object at startup
-//        try {
-//            recognizerPool.returnObject(recognizerPool.borrowObject());
-//        } catch (final Exception e) {
-//            logger.error("Cannot instantiate initial recognizer instance {}", e.getLocalizedMessage());
-//        }
 
         workers = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
-                600L, TimeUnit.SECONDS,
+                KEEP_ALIVE_TIME, TimeUnit.SECONDS,
                 new SynchronousQueue<>());
 
         try {
             listenSocket = new ServerSocket(port);
         } catch (final IOException e) {
-            logger.error("An exception occurred while creating the listen socket: {}", e.getMessage());
+            logger.error(AN_EXCEPTION_OCCURRED_WHILE_CREATING_THE_LISTEN_SOCKET, e.getMessage());
+            System.exit(1);
+        }
+    }
+
+
+    @SuppressWarnings("unused")
+    public ClinicalRecognizerServer() throws IOException {
+
+        final Properties properties = new Properties();
+        properties.loadFromXML(new FileInputStream(DEFAULT_CONFIG_PATH));
+
+        final int port = Integer.valueOf(properties.getProperty("port","55555"));
+        final String dictionaryPath = properties.getProperty("dictionary.path", DICTIONARY_DEFAULT_NAME);
+
+        this.port = port;
+        conceptRecognizer = new SynchronizedConceptRecognizer(new FaironConceptRecognizer(new FileInputStream(dictionaryPath)));
+
+        workers = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
+                KEEP_ALIVE_TIME, TimeUnit.SECONDS,
+                new SynchronousQueue<>());
+
+        try {
+            listenSocket = new ServerSocket(port);
+        } catch (final IOException e) {
+            logger.error(AN_EXCEPTION_OCCURRED_WHILE_CREATING_THE_LISTEN_SOCKET, e.getMessage());
             System.exit(1);
         }
     }
@@ -123,23 +139,28 @@ public final class ClinicalRecognizerServer implements StartStopJoinRunnable {
 
     /**
      * Shuts down this server.  Since the main server thread will time out every 1 second,
-     * the shutdown process should complete in at most 1 second from the time this method is invoked.
+     * the stop process should complete in at most 1 second from the time this method is invoked.
      */
     @Override
-    public void shutdown() {
+    public void stop() {
         logger.info("Shutting down the server.");
         keepRunning = false;
         workers.shutdownNow();
-        try {
-            thread.join();
-        } catch (final InterruptedException e) {
-            // Ignored, we're exiting anyway
-        }
+
+    }
+
+    @Override
+    public void init(final DaemonContext daemonContext) {
     }
 
     @Override
     public void start() {
         thread.start();
+    }
+
+    @Override
+    public void destroy() {
+
     }
 
     @Override
