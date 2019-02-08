@@ -27,7 +27,7 @@ public enum GetProperty {
         }
 
         for (final String property : args) {
-            logger.error(System.getProperty(property));
+            System.out.println(System.getProperty(property));
         }
     }
 
